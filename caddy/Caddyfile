@@ -1,0 +1,14 @@
+# Replace yourdomain.com with your actual domain
+# Point your DNS A record to your VPS IP before running Caddy
+
+api.yourdomain.com {
+    reverse_proxy localhost:4000
+}
+
+app.yourdomain.com {
+    reverse_proxy localhost:3000
+}
+
+admin.yourdomain.com {
+    reverse_proxy localhost:3001
+}

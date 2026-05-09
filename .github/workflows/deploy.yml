@@ -1,0 +1,63 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+            apps/*/node_modules
+            api/node_modules
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - run: bun install --frozen-lockfile
+      - run: bunx biome check .
+      - run: bun run typecheck
+
+  deploy:
+    needs: quality
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: pull and deploy
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} bash <<'EOF'
+          set -euo pipefail
+          cd /opt/myapp
+
+          PREV_SHA=$(sudo -u myapp git rev-parse HEAD)
+          sudo -u myapp git pull --ff-only origin main
+          NEW_SHA=$(sudo -u myapp git rev-parse HEAD)
+
+          PREV_SHA="$PREV_SHA" NEW_SHA="$NEW_SHA" bash scripts/deploy.sh
+          EOF
+
+      - name: health check
+        run: |
+          for i in 1 2 3 4 5; do
+            if curl -sf --max-time 10 "https://api.yourdomain.com/api/health" -o /dev/null; then
+              echo "API healthy"
+              exit 0
+            fi
+            echo "attempt $i failed, retrying..."
+            sleep 3
+          done
+          echo "health check failed"
+          exit 1
