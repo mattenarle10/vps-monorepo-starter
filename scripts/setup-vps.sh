@@ -65,9 +65,9 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# systemd service
+# systemd services (api + web + admin)
 # ---------------------------------------------------------------------------
-echo "Creating systemd service..."
+echo "Creating systemd services..."
 cat > /etc/systemd/system/myapp-api.service << EOF
 [Unit]
 Description=My App API
@@ -87,8 +87,48 @@ EnvironmentFile=/opt/myapp/api/.env
 WantedBy=multi-user.target
 EOF
 
+cat > /etc/systemd/system/myapp-web.service << EOF
+[Unit]
+Description=My App Web
+After=network.target
+
+[Service]
+Type=simple
+User=myapp
+Group=myapp
+WorkingDirectory=/opt/myapp/apps/web
+ExecStart=${BUN_BIN} dist/server/index.mjs
+Restart=always
+RestartSec=5
+Environment=PORT=3000
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+cat > /etc/systemd/system/myapp-admin.service << EOF
+[Unit]
+Description=My App Admin
+After=network.target
+
+[Service]
+Type=simple
+User=myapp
+Group=myapp
+WorkingDirectory=/opt/myapp/apps/admin
+ExecStart=${BUN_BIN} dist/server/index.mjs
+Restart=always
+RestartSec=5
+Environment=PORT=3001
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 systemctl daemon-reload
-systemctl enable myapp-api
+systemctl enable myapp-api myapp-web myapp-admin
 
 # ---------------------------------------------------------------------------
 # Daily pg_dump backups, 30-day retention
