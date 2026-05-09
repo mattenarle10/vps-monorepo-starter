@@ -58,7 +58,7 @@ fi
 echo "rebuilding: ${APPS[*]}"
 for app in "${APPS[@]}"; do
   echo "building $app..."
-  sudo -u myapp bash -c "cd $REPO_DIR/apps/$app && $BUN run build"
+  sudo -u myapp bash -c "cd $REPO_DIR/apps/$app && $BUN install && $BUN run build"
   systemctl restart "myapp-$app"
 done
 
